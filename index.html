@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
-    <title>RB21 Cockpit Real Physics</title>
+    <title>RB21 Cockpit Perfect Physics</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { background: #050b14; color: #fff; font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 10px; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -66,7 +66,7 @@
 
 <div id="start-overlay">
     <h1 style="color:#fff; margin-bottom:5px; font-size:26px; letter-spacing:1px;">RB21 COCKPIT</h1>
-    <p style="color:#5e6e85; font-size:14px; margin-bottom:40px;">Físicas y Límites de Marcha Reales de F1</p>
+    <p style="color:#5e6e85; font-size:14px; margin-bottom:40px;">Físicas de Empuje Continuo y Sonido de Clicks</p>
     <button id="start-btn">ENCENDER MOTOR</button>
 </div>
 
@@ -141,20 +141,18 @@ function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
     mainGain = audioCtx.createGain();
-    mainGain.gain.value = 0.0; // Silencio inicial
+    mainGain.gain.value = 0.0;
     
     filter = audioCtx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.value = 1200;
 
-    // Oscilador principal (Cilindros / Combustión)
     osc1 = audioCtx.createOscillator();
     osc1.type = 'sawtooth';
     
-    // Segundo oscilador (Armónicos de alta frecuencia del escape)
     osc2 = audioCtx.createOscillator();
     osc2.type = 'triangle';
-    osc2.detune.value = 7; // Ligero desfase para dar cuerpo
+    osc2.detune.value = 7;
 
     osc1.connect(filter);
     osc2.connect(filter);
@@ -165,14 +163,39 @@ function initAudio() {
     osc2.start();
 }
 
+// Generador sintético del sonido de "Click" metálico de la paleta
+function playPaddleClick() {
+    if (!audioCtx) return;
+    
+    // Nodo de volumen rápido para el golpe seco
+    let clickGain = audioCtx.createGain();
+    clickGain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04); // Desvanecimiento instantáneo
+
+    // Filtro de paso alto para quitar graves y dar sonido puramente metálico
+    let clickFilter = audioCtx.createBiquadFilter();
+    clickFilter.type = 'highpass';
+    clickFilter.frequency.setValueAtTime(2500, audioCtx.currentTime);
+
+    let clickOsc = audioCtx.createOscillator();
+    clickOsc.type = 'triangle';
+    clickOsc.frequency.setValueAtTime(1800, audioCtx.currentTime); // Tono agudo de la palanca
+
+    clickOsc.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(audioCtx.destination);
+
+    clickOsc.start();
+    clickOsc.stop(audioCtx.currentTime + 0.05);
+}
+
 function updatePhysics(currentTime) {
     let dt = (currentTime - lastTime) / 1000;
     if (dt > 0.1) dt = 1/60;
     lastTime = currentTime;
 
-    // Suavizado de los pedales
-    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 0.3;
-    state.brake += ((keys.brake ? 1 : 0) - state.brake) * 0.4;
+    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 0.35;
+    state.brake += ((keys.brake ? 1 : 0) - state.brake) * 0.5;
 
     document.getElementById('throttle-fill').style.height = (state.throttle * 100) + '%';
     document.getElementById('brake-fill').style.height = (state.brake * 100) + '%';
@@ -180,59 +203,50 @@ function updatePhysics(currentTime) {
     let maxSpeedAllowed = GEAR_LIMITS[state.gear];
 
     if (state.gear === 0) {
-        // En Neutro (N) la velocidad decae y las RPM suben libres con el Gas
         state.speed += (0 - state.speed) * 2.0 * dt;
         state.rpm += ((keys.throttle ? RPM_MAX - 400 : RPM_IDLE) - state.rpm) * 0.4;
     } else {
-        // Simulación de aceleración y frenado según la marcha actual
         if (keys.throttle && state.speed < maxSpeedAllowed) {
-            // Aceleración lineal y progresiva
-            state.speed += (maxSpeedAllowed - state.speed) * 0.45 * dt;
+            // SOLUCIÓN AL RETRASO: Empuje continuo multiplicando de forma constante sin decaer al final de la marcha
+            state.speed += 120 * dt; 
         }
         if (keys.brake) {
-            state.speed -= 180 * dt; // Potencia de frenado carbono-cerámica
+            state.speed -= 220 * dt; 
         }
-        // Fricción básica del aire
-        state.speed -= (state.speed * 0.08) * dt;
+        
+        state.speed -= (state.speed * 0.04) * dt; // Resistencia aerodinámica suavizada
         if (state.speed < 0) state.speed = 0;
 
-        // Limitar estrictamente la velocidad máxima por software
         if (state.speed > maxSpeedAllowed) state.speed = maxSpeedAllowed;
 
-        // Las RPM van directamente ligadas a la velocidad dentro del rango de esa marcha
+        // Sincronización lineal de RPM
         let prevLimit = state.gear === 1 ? 0 : GEAR_LIMITS[state.gear - 1];
         let pct = (state.speed - prevLimit) / (maxSpeedAllowed - prevLimit);
         if (pct < 0) pct = 0;
         
         state.rpm = RPM_IDLE + (pct * (RPM_MAX - RPM_IDLE));
         
-        // Si dejas presionado a fondo al límite de la marcha, genera un limitador sutil (corte de inyección)
         if (state.speed >= maxSpeedAllowed && keys.throttle) {
             state.rpm = RPM_MAX - (Math.random() * 250);
         }
     }
 
-    // Renderizado de telemetría en pantalla
     document.getElementById('val-speed').textContent = Math.floor(state.speed);
     document.getElementById('val-gear').textContent = state.gear === -1 ? 'R' : state.gear === 0 ? 'N' : state.gear;
     document.getElementById('val-rpm').textContent = Math.floor(state.rpm);
 
-    // Renderizado del sonido en tiempo real según las RPM y carga de motor
     if (audioCtx && osc1 && osc2) {
-        let baseHz = (state.rpm / 60) * 1.8; // Frecuencia fundamental del motor V6
+        let baseHz = (state.rpm / 60) * 1.8;
         osc1.frequency.setTargetAtTime(baseHz, audioCtx.currentTime, 0.04);
-        osc2.frequency.setTargetAtTime(baseHz * 2.0, audioCtx.currentTime, 0.04); // Segundo armónico
+        osc2.frequency.setTargetAtTime(baseHz * 2.0, audioCtx.currentTime, 0.04);
 
-        // Cambiar volumen dinámicamente si estás acelerando (carga del motor)
         let targetVolume = 0.04 + (state.throttle * 0.16);
         mainGain.gain.setTargetAtTime(targetVolume, audioCtx.currentTime, 0.05);
         
-        // El filtro de sonido se abre a altas RPM para sonar más agudo y agresivo
         let filterHz = 800 + (state.rpm / RPM_MAX) * 2200;
         filter.frequency.setTargetAtTime(filterHz, audioCtx.currentTime, 0.05);
     }
 
-    // Iluminación secuencial de los LEDs superiores
     const ledStep = (RPM_MAX - RPM_LEDS_START) / 15;
     for (let i = 0; i < 15; i++) {
         const ledNode = document.getElementById('led-' + i);
@@ -259,7 +273,6 @@ document.getElementById('start-btn').addEventListener('click', () => {
     requestAnimationFrame(updatePhysics);
 });
 
-// Configuración de los pedales táctiles
 const setupPedalTouch = (id, key) => {
     const el = document.getElementById(id);
     el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; }, {passive: false});
@@ -268,11 +281,12 @@ const setupPedalTouch = (id, key) => {
 setupPedalTouch('pedal-throttle', 'throttle');
 setupPedalTouch('pedal-brake', 'brake');
 
-// Cambio de marchas manual por paletas
+// Cambio de marchas con el agregado de "Click" sonoro
 document.getElementById('paddle-up').addEventListener('touchstart', (e) => { 
     e.preventDefault(); 
     if (state.gear < 8) {
         state.gear++;
+        playPaddleClick(); // Ejecuta el click metálico
     }
 }, {passive: false});
 
@@ -280,6 +294,7 @@ document.getElementById('paddle-down').addEventListener('touchstart', (e) => {
     e.preventDefault(); 
     if (state.gear > 0) { 
         state.gear--; 
+        playPaddleClick(); // Ejecuta el click metálico
     }
 }, {passive: false});
 </script>
