@@ -3,361 +3,255 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
-    <title>F1 Telemetry Simulator - V2.0</title>
+    <title>F1 Real Wheel & Telemetry</title>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        /* CSS Variables for Easy Theming */
-        :root {
-            --bg-dark: #0a0e17;
-            --bg-panel: #141b25;
-            --border-panel: #2a3441;
-            --accent-green: #00ffcc;
-            --accent-red: #ff3333;
-            --accent-yellow: #ffeb3b;
-            --accent-blue: #00ffff;
-            --text-main: #ffffff;
-            --text-muted: #8b9bb4;
-            --font-mono: 'Share Tech Mono', monospace;
-            --font-sans: 'Inter', sans-serif;
-        }
-
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { 
-            background: var(--bg-dark); 
-            color: var(--text-main); 
-            font-family: var(--font-sans); 
+            background: #000; 
+            color: #fff; 
+            font-family: 'Inter', sans-serif; 
             margin: 0; 
             min-height: 100vh; 
             display: flex; 
             align-items: center; 
             justify-content: center; 
             overflow: hidden; 
-            background-image: 
-                linear-gradient(rgba(10, 14, 23, 0.9), rgba(10, 14, 23, 0.9)),
-                repeating-linear-gradient(45deg, #111 0px, #111 2px, transparent 2px, transparent 4px);
         }
         
-        /* Main Dashboard Container - Wider and more structured */
-        #dashboard-container { 
-            width: 100%; 
-            max-width: 600px; 
-            background: var(--bg-panel); 
-            border: 1px solid var(--border-panel); 
-            border-radius: 16px; 
-            padding: 24px; 
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05); 
-            position: relative; 
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        /* Header / Logo Area */
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-panel);
-            padding-bottom: 12px;
-        }
-        .dashboard-title {
-            font-size: 14px;
-            font-weight: 800;
-            letter-spacing: 2px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: var(--accent-green);
-        }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--accent-green);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--accent-green);
-            animation: pulse 2s infinite;
+        /* Textura de Fibra de Carbono para el Volante */
+        .carbon-body {
+            width: 100%;
+            max-width: 650px;
+            padding: 30px 20px;
+            border-radius: 40px;
+            background: radial-gradient(circle at 50% 0%, #333 0%, #111 70%, #000 100%);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.9), inset 0 2px 5px rgba(255,255,255,0.1);
+            position: relative;
+            border: 2px solid #222;
         }
 
-        /* RPM LED Bar - Re-styled to look like a physical component */
-        .led-module {
-            background: #05080c;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #1a222c;
+        /* LEDs integrados en el cuerpo del volante (arriba de la pantalla) */
+        .wheel-leds {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
-        }
-        .led-strip { 
-            display: flex; 
-            justify-content: center; 
-            gap: 6px; 
-            flex-grow: 1;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding: 0 40px;
         }
         .led { 
-            width: 16px; 
-            height: 12px; 
-            border-radius: 2px; 
+            width: 18px; 
+            height: 18px; 
+            border-radius: 50%; 
             background: #111; 
-            transition: background 0.05s; 
-            opacity: 0.2; 
-            border: 1px solid #222;
+            border: 2px solid #000;
+            opacity: 0.3;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+            transition: all 0.05s;
         }
-        .led.verde { background: var(--accent-green); border-color: #00aa88;}
-        .led.rojo { background: var(--accent-red); border-color: #aa0000;}
-        .led.azul { background: var(--accent-blue); border-color: #00aaaa;}
-        .led.active { opacity: 1; box-shadow: 0 0 12px currentColor; }
+        .led.verde { background: #00ff00; }
+        .led.rojo { background: #ff0000; }
+        .led.azul { background: #0088ff; }
+        .led.active { opacity: 1; box-shadow: 0 0 15px currentColor, inset 0 2px 4px rgba(255,255,255,0.4); border-color: transparent; }
         .led.blink { animation: parpadeo 0.08s infinite alternate; }
         @keyframes parpadeo { from { opacity: 0.1; } to { opacity: 1; } }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* Main Telemetry Display */
-        .telemetry-display { 
-            display: grid; 
-            grid-template-columns: 1fr 1.2fr 1fr; 
-            gap: 15px;
+        /* Pantalla LCD Central (Estilo F1 Real) */
+        .screen-bezel {
+            background: #000;
+            padding: 10px;
+            border-radius: 12px;
+            border: 3px solid #1a1a1a;
+            box-shadow: inset 0 0 20px rgba(0,0,0,1);
+            margin-bottom: 30px;
         }
         
-        .data-panel {
-            background: #090c12;
-            border: 1px solid var(--border-panel);
-            border-radius: 8px;
+        .lcd-screen {
+            background: #080b12;
+            border-radius: 6px;
             padding: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 10px;
+            border: 1px solid #1f2a3d;
+            box-shadow: inset 0 0 30px rgba(0, 50, 100, 0.1);
+        }
+
+        /* Bloques de información de la pantalla */
+        .info-block {
             display: flex;
             flex-direction: column;
+            justify-content: center;
+        }
+        .info-label { font-size: 11px; color: #5c7080; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; }
+        .info-value { font-family: 'Share Tech Mono', monospace; font-size: 32px; color: #fff; }
+        .info-unit { font-size: 14px; color: #5c7080; }
+
+        .left-col { align-items: flex-start; }
+        .right-col { align-items: flex-end; text-align: right; }
+        
+        /* Marcha Central Gigante */
+        .center-col {
+            grid-row: span 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 2px solid #151d29;
+            border-right: 2px solid #151d29;
+            background: radial-gradient(circle, #101622 0%, #080b12 100%);
+        }
+        #val-gear {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 110px;
+            line-height: 0.8;
+            color: #ff3333; /* Rojo Ferrari clásico */
+            text-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
+        }
+
+        /* Detalles extras para que se vea pro */
+        .rpm-bar-digital {
+            grid-column: span 3;
+            background: #000;
+            height: 25px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
             justify-content: space-between;
+            border: 1px solid #1f2a3d;
+        }
+        .rpm-text { color: #fff; font-family: 'Share Tech Mono', monospace; font-size: 16px; }
+        
+        .speed-val { color: #00ffcc; }
+        .delta-val { color: #00ff00; }
+
+        /* Controles (Paletas y Pedales) */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .paddle { 
+            background: #1a1a1a; 
+            border: 1px solid #333; 
+            color: #aaa; 
+            padding: 15px; 
+            font-size: 14px; 
+            font-weight: 800; 
+            border-radius: 8px; 
+            text-transform: uppercase; 
+            cursor: pointer;
+            box-shadow: 0 4px 0 #0a0a0a;
+            transition: all 0.1s;
+        }
+        .paddle:active { transform: translateY(4px); box-shadow: 0 0 0 #0a0a0a; background: #222; color: #fff; }
+
+        .pedal-box {
+            grid-column: span 2;
+            display: flex;
+            gap: 20px;
+            height: 120px;
+            margin-top: 10px;
+        }
+        
+        .pedal {
+            flex: 1;
+            background: #0a0a0a;
+            border: 2px solid #222;
+            border-radius: 8px;
             position: relative;
             overflow: hidden;
         }
         
-        .data-panel::after {
-            content: '';
+        .pedal-fill {
             position: absolute;
-            top: 0; left: 0; right: 0; height: 2px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-        }
-
-        .data-label { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
-        .data-value { font-family: var(--font-mono); font-size: 32px; font-weight: normal; color: var(--text-main); }
-        .data-unit { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
-
-        .speed-panel .data-value { color: var(--accent-blue); }
-        
-        .gear-panel {
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at center, #1a222c 0%, #090c12 100%);
-            border-color: #3a4b61;
-        }
-        .gear-panel .data-label { text-align: center; }
-        #val-gear { 
-            font-family: var(--font-mono); 
-            font-size: 80px; 
-            color: var(--accent-yellow); 
-            line-height: 1; 
-            text-shadow: 0 0 20px rgba(255,235,59,0.3); 
-        }
-
-        .rpm-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            background: #090c12;
-            padding: 10px 15px;
-            border-radius: 8px;
-            border: 1px solid var(--border-panel);
-            font-family: var(--font-mono);
-        }
-        .rpm-value { color: var(--accent-red); font-size: 24px; }
-
-        /* Controls Area */
-        .controls-area {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        /* Paddle Shifters */
-        .paddle { 
-            background: linear-gradient(180deg, #2a3441 0%, #1a222c 100%); 
-            border: 1px solid #3a4b61; 
-            color: var(--text-main); 
-            padding: 16px; 
-            font-family: var(--font-sans);
-            font-size: 14px; 
-            font-weight: 600; 
-            border-radius: 8px; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            cursor: pointer;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.3);
-            transition: all 0.1s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
-        .paddle:active { 
-            transform: translateY(2px); 
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); 
-            background: #1a222c; 
-        }
-        .paddle-icon { font-size: 18px; }
-
-        /* Pedals */
-        .pedal-container {
-            grid-column: span 2;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            height: 140px;
+            bottom: 0; left: 0; width: 100%; height: 0%;
+            transition: height 0.05s linear;
         }
         
-        .pedal-wrapper { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            height: 100%; 
-        }
+        #brake-base { border-color: rgba(255, 51, 51, 0.2); }
+        #throttle-base { border-color: rgba(0, 255, 204, 0.2); }
+        #brake-fill { background: linear-gradient(to top, #4a0000, #ff3333); }
+        #throttle-fill { background: linear-gradient(to top, #004a33, #00ffcc); }
         
-        .pedal-base { 
-            width: 100%; 
-            height: 100%; 
-            background: #090c12; 
-            border: 2px solid var(--border-panel); 
-            border-radius: 8px; 
-            position: relative; 
-            overflow: hidden; 
-            cursor: pointer;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-        }
-        
-        .pedal-fill { 
-            position: absolute; 
-            bottom: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 0%; 
-            transition: height 0.05s linear; 
-        }
-        
-        #brake-base { border-color: rgba(255, 51, 51, 0.3); }
-        #throttle-base { border-color: rgba(0, 255, 204, 0.3); }
-
-        #brake-fill { background: linear-gradient(to top, rgba(255,51,51,0.2), var(--accent-red)); }
-        #throttle-fill { background: linear-gradient(to top, rgba(0,255,204,0.2), var(--accent-green)); }
-        
-        .pedal-label { 
-            margin-top: 8px;
-            font-size: 12px; 
-            font-weight: 600; 
-            color: var(--text-muted); 
-            text-transform: uppercase; 
-            letter-spacing: 2px;
+        .pedal-text {
+            position: absolute;
+            top: 10px; width: 100%; text-align: center;
+            font-size: 12px; font-weight: bold; color: #555; text-transform: uppercase;
+            z-index: 2;
         }
 
         /* Start Overlay */
         #start-overlay { 
             position: fixed; top:0; left:0; width:100%; height:100%; 
-            background: rgba(10, 14, 23, 0.95); 
-            display:flex; flex-direction:column; justify-content:center; align-items:center; 
-            z-index:100; backdrop-filter: blur(5px);
+            background: #000; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:100;
         }
-        .overlay-title { font-size: 32px; font-weight: 800; letter-spacing: 4px; margin-bottom: 10px; color: var(--text-main); }
-        .overlay-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 40px; letter-spacing: 1px; }
-        
         #start-btn { 
-            background: var(--accent-red); 
-            color: white; 
-            border: none; 
-            padding: 16px 40px; 
-            font-family: var(--font-sans);
-            font-size: 16px; 
-            border-radius: 4px; 
-            font-weight: 800; 
-            letter-spacing: 2px; 
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(255,51,51,0.4); 
-            transition: all 0.2s;
-            text-transform: uppercase;
+            background: #ff3333; color: white; border: none; padding: 15px 40px; font-size: 18px; border-radius: 6px; font-weight: 800; cursor: pointer; text-transform: uppercase;
         }
-        #start-btn:hover { background: #ff4d4d; box-shadow: 0 0 30px rgba(255,51,51,0.6); transform: scale(1.05); }
     </style>
 </head>
 <body>
 
 <div id="start-overlay">
-    <div class="overlay-title">F1 SIMULATOR</div>
-    <div class="overlay-sub">V2.0 - TELEMETRY & AUDIO ENGINES</div>
-    <button id="start-btn">INITIALIZE SYSTEM</button>
+    <h1 style="font-family:'Share Tech Mono'; font-size:40px; margin-bottom:10px;">F1 WHEEL</h1>
+    <button id="start-btn">POWER ON</button>
 </div>
 
-<div id="dashboard-container">
-    <div class="dashboard-header">
-        <div class="dashboard-title">Scuderia Telemetry</div>
-        <div class="status-indicator">
-            <div class="status-dot"></div>
-            LIVE DATA
-        </div>
+<div class="carbon-body">
+    <div class="wheel-leds">
+        <div class="led verde" id="led-0"></div><div class="led verde" id="led-1"></div><div class="led verde" id="led-2"></div><div class="led verde" id="led-3"></div><div class="led verde" id="led-4"></div>
+        <div class="led rojo" id="led-5"></div><div class="led rojo" id="led-6"></div><div class="led rojo" id="led-7"></div><div class="led rojo" id="led-8"></div><div class="led rojo" id="led-9"></div>
+        <div class="led azul" id="led-10"></div><div class="led azul" id="led-11"></div><div class="led azul" id="led-12"></div><div class="led azul" id="led-13"></div><div class="led azul" id="led-14"></div>
     </div>
 
-    <div class="led-module">
-        <div class="led-strip">
-            <div class="led verde" id="led-0"></div><div class="led verde" id="led-1"></div><div class="led verde" id="led-2"></div><div class="led verde" id="led-3"></div><div class="led verde" id="led-4"></div>
-            <div class="led rojo" id="led-5"></div><div class="led rojo" id="led-6"></div><div class="led rojo" id="led-7"></div><div class="led rojo" id="led-8"></div><div class="led rojo" id="led-9"></div>
-            <div class="led azul" id="led-10"></div><div class="led azul" id="led-11"></div><div class="led azul" id="led-12"></div><div class="led azul" id="led-13"></div><div class="led azul" id="led-14"></div>
-        </div>
-    </div>
-
-    <div class="telemetry-display">
-        <div class="data-panel speed-panel">
-            <div class="data-label">Speed</div>
-            <div><span id="val-speed" class="data-value">0</span><span class="data-unit">km/h</span></div>
-        </div>
-        
-        <div class="data-panel gear-panel">
-            <div class="data-label">Gear</div>
-            <div id="val-gear">N</div>
-        </div>
-        
-        <div class="data-panel">
-            <div class="data-label">Delta</div>
-            <div><span class="data-value" style="color: var(--accent-green); font-size: 24px;">-0.124</span><span class="data-unit">s</span></div>
-        </div>
-    </div>
-
-    <div class="rpm-row">
-        <span class="data-label">Engine RPM</span>
-        <span id="val-rpm" class="rpm-value">4000</span>
-    </div>
-
-    <div class="controls-area">
-        <button class="paddle" id="paddle-down">
-            <span class="paddle-icon">◀</span> Downshift
-        </button>
-        <button class="paddle" id="paddle-up">
-            Upshift <span class="paddle-icon">▶</span>
-        </button>
-
-        <div class="pedal-container">
-            <div class="pedal-wrapper">
-                <div class="pedal-base" id="brake-base">
-                    <div class="pedal-fill" id="brake-fill"></div>
-                </div>
-                <div class="pedal-label">Brake</div>
+    <div class="screen-bezel">
+        <div class="lcd-screen">
+            <div class="info-block left-col">
+                <div class="info-label">SPEED</div>
+                <div><span id="val-speed" class="info-value speed-val">0</span> <span class="info-unit">km/h</span></div>
             </div>
             
-            <div class="pedal-wrapper">
-                <div class="pedal-base" id="throttle-base">
-                    <div class="pedal-fill" id="throttle-fill"></div>
-                </div>
-                <div class="pedal-label">Throttle</div>
+            <div class="center-col">
+                <div id="val-gear">N</div>
+            </div>
+            
+            <div class="info-block right-col">
+                <div class="info-label">LAP TIME</div>
+                <div class="info-value" style="font-size:24px;">1:18.432</div>
+            </div>
+
+            <div class="info-block left-col">
+                <div class="info-label">BBAL</div>
+                <div class="info-value" style="font-size:20px; color:#aaa;">56.5%</div>
+            </div>
+            
+            <div class="info-block right-col">
+                <div class="info-label">SOC</div>
+                <div class="info-value delta-val" style="font-size:20px;">98%</div>
+            </div>
+
+            <div class="rpm-bar-digital">
+                <span class="info-label" style="color:#444;">RPM</span>
+                <span id="val-rpm" class="rpm-text">04000</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-grid">
+        <button class="paddle" id="paddle-down">◀ DOWN</button>
+        <button class="paddle" id="paddle-up">UP ▶</button>
+
+        <div class="pedal-box">
+            <div class="pedal" id="brake-base">
+                <div class="pedal-text">Brake</div>
+                <div class="pedal-fill" id="brake-fill"></div>
+            </div>
+            <div class="pedal" id="throttle-base">
+                <div class="pedal-text">Gas</div>
+                <div class="pedal-fill" id="throttle-fill"></div>
             </div>
         </div>
     </div>
@@ -366,188 +260,143 @@
 <script>
 'use strict';
 
-// ----------------------------------------------------------------------
-// PHYSICS ENGINE V2.0 - Realistic F1 Speeds (Converted from MPH to KM/H)
-// ----------------------------------------------------------------------
-// F1 cars use different gear ratios depending on the track. These numbers
-// represent aggressive acceleration curves where 1st gear hits ~130km/h 
-// very quickly, and 8th gear can push past 340km/h.
-const GEAR_LIMITS = { 
-    '-1': 80, 
-    '0': 0, 
-    '1': 135, // ~83 mph
-    '2': 180, // ~111 mph
-    '3': 220, // ~136 mph
-    '4': 255, // ~158 mph
-    '5': 285, // ~177 mph
-    '6': 310, // ~192 mph
-    '7': 335, // ~208 mph
-    '8': 360  // ~223 mph
-};
+const GEAR_LIMITS = { '-1': 80, '0': 0, '1': 135, '2': 180, '3': 220, '4': 255, '5': 285, '6': 310, '7': 335, '8': 360 };
+const RPM_IDLE = 4000, RPM_MAX = 15000, RPM_LEDS_START = 10000;
 
-const RPM_IDLE = 4000;
-const RPM_MAX = 15000;
-const RPM_LEDS_START = 10000;
-
-// Acceleration force multiplier (higher = faster acceleration)
-// Adjusted to match the rapid climbing seen in the reference videos.
 const ACCEL_RATE = 160; 
-const BRAKE_RATE = 300; // Carbon-ceramic brakes are extremely powerful
-const AERO_DRAG = 0.03; // Drag coefficient
+// AQUÍ ESTÁ EL CAMBIO DEL FRENO: Bajé la fuerza de 300 a 110. Ahora es progresivo y te deja bajar marchas.
+const BRAKE_RATE = 110; 
+const AERO_DRAG = 0.02; // Un poco menos de drag para que fluya mejor al soltar gas
 
 const state = { speed: 0, gear: 0, rpm: RPM_IDLE, throttle: 0, brake: 0 };
 const keys = { throttle: false, brake: false };
 
-let audioCtx = null;
-let osc1 = null, osc2 = null, filter = null, mainGain = null;
+let audioCtx = null, osc1 = null, osc2 = null, filter = null, mainGain = null;
 let lastTime = performance.now();
 
-// ----------------------------------------------------------------------
-// AUDIO ENGINE 
-// ----------------------------------------------------------------------
 function initAudio() {
     if (audioCtx) return;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    mainGain = audioCtx.createGain();
-    mainGain.gain.value = 0.0;
-    
-    // Lowpass filter to simulate engine block/exhaust muffling
-    filter = audioCtx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 1000;
-    filter.Q.value = 2; // Adds slight resonance
+    mainGain = audioCtx.createGain(); mainGain.gain.value = 0.0;
+    filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1000;
+    osc1 = audioCtx.createOscillator(); osc1.type = 'sawtooth';
+    osc2 = audioCtx.createOscillator(); osc2.type = 'square'; osc2.detune.value = 12;
 
-    // Osc1: Fundamental V6 frequency
-    osc1 = audioCtx.createOscillator();
-    osc1.type = 'sawtooth';
-    
-    // Osc2: High-frequency turbo whine / harmonics
-    osc2 = audioCtx.createOscillator();
-    osc2.type = 'square';
-    osc2.detune.value = 12;
-
-    osc1.connect(filter);
-    osc2.connect(filter);
-    filter.connect(mainGain);
-    mainGain.connect(audioCtx.destination);
-    
-    osc1.start();
-    osc2.start();
+    osc1.connect(filter); osc2.connect(filter); filter.connect(mainGain); mainGain.connect(audioCtx.destination);
+    osc1.start(); osc2.start();
 }
 
-// ----------------------------------------------------------------------
-// METALLIC PADDLE SHIFT SOUND
-// ----------------------------------------------------------------------
 function playPaddleClick() {
     if (!audioCtx) return;
+    let clickOsc = audioCtx.createOscillator(); clickOsc.type = 'sine';
+    clickOsc.frequency.setValueAtTime(2500, audioCtx.currentTime); 
+    clickOsc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.03);
     
-    // Create an oscillator for the metallic "ping"
-    let clickOsc = audioCtx.createOscillator();
-    clickOsc.type = 'sine'; // Sine wave for pure tone
-    clickOsc.frequency.setValueAtTime(2500, audioCtx.currentTime); // High pitch (2.5kHz)
-    clickOsc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.03); // Quick pitch drop
-
-    // Add some noise for the mechanical "clack"
-    let bufferSize = audioCtx.sampleRate * 0.05; // 50ms of noise
-    let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    let data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-    }
-    let noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
-
-    // Filter the noise to make it sound like carbon fiber/metal
-    let noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.value = 1500;
-
-    // Fast envelope to make it sound like a sharp click
     let clickGain = audioCtx.createGain();
     clickGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
-    clickGain.gain.linearRampToValueAtTime(0.6, audioCtx.currentTime + 0.005); // Instant attack
-    clickGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05); // Fast decay
+    clickGain.gain.linearRampToValueAtTime(0.6, audioCtx.currentTime + 0.005);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
 
-    // Connections
-    clickOsc.connect(clickGain);
-    noise.connect(noiseFilter);
-    noiseFilter.connect(clickGain);
-    clickGain.connect(audioCtx.destination);
-
-    // Play
-    clickOsc.start();
-    noise.start();
-    clickOsc.stop(audioCtx.currentTime + 0.05);
+    clickOsc.connect(clickGain); clickGain.connect(audioCtx.destination);
+    clickOsc.start(); clickOsc.stop(audioCtx.currentTime + 0.05);
 }
 
-
-// ----------------------------------------------------------------------
-// MAIN PHYSICS LOOP
-// ----------------------------------------------------------------------
 function updatePhysics(currentTime) {
     let dt = (currentTime - lastTime) / 1000;
-    if (dt > 0.1) dt = 1/60; // Prevent huge jumps if tab is inactive
+    if (dt > 0.1) dt = 1/60;
     lastTime = currentTime;
 
-    // Smooth pedal inputs
-    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 15 * dt;
-    state.brake += ((keys.brake ? 1 : 0) - state.brake) * 20 * dt;
+    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 10 * dt;
+    // Suavizamos también cómo entra el pedal del freno visualmente y físicamente
+    state.brake += ((keys.brake ? 1 : 0) - state.brake) * 10 * dt;
     
-    // Clamp values
     state.throttle = Math.max(0, Math.min(1, state.throttle));
     state.brake = Math.max(0, Math.min(1, state.brake));
 
-    // Update UI Pedals
     document.getElementById('throttle-fill').style.height = (state.throttle * 100) + '%';
     document.getElementById('brake-fill').style.height = (state.brake * 100) + '%';
 
     let maxSpeedAllowed = GEAR_LIMITS[state.gear];
 
     if (state.gear === 0) {
-        // Neutral: Speed decays, RPM revs freely based on throttle
         state.speed -= state.speed * AERO_DRAG * dt;
-        if (keys.brake) state.speed -= BRAKE_RATE * dt;
+        if (keys.brake) state.speed -= BRAKE_RATE * state.brake * dt;
         if (state.speed < 0) state.speed = 0;
-        
         let targetRpm = RPM_IDLE + (state.throttle * (RPM_MAX - RPM_IDLE));
         state.rpm += (targetRpm - state.rpm) * 10 * dt;
     } else {
-        // In Gear: Accelerate or Brake
-        if (keys.throttle && state.speed < maxSpeedAllowed) {
-            // Constant strong acceleration
-            state.speed += ACCEL_RATE * state.throttle * dt; 
-        }
-        if (keys.brake) {
-            state.speed -= BRAKE_RATE * state.brake * dt; 
-        }
+        if (keys.throttle && state.speed < maxSpeedAllowed) { state.speed += ACCEL_RATE * state.throttle * dt; }
+        // Aplicación del freno más realista
+        if (keys.brake) { state.speed -= BRAKE_RATE * state.brake * dt; }
         
-        // Aero drag increases with speed
         state.speed -= (state.speed * AERO_DRAG) * dt; 
         if (state.speed < 0) state.speed = 0;
-
-        // Hard limit at gear max speed
         if (state.speed > maxSpeedAllowed) state.speed = maxSpeedAllowed;
 
-        // Calculate RPM based on speed within current gear
         let prevLimit = state.gear === 1 ? 0 : GEAR_LIMITS[state.gear - 1];
-        let speedInGearRange = state.speed - prevLimit;
-        let gearRangeSize = maxSpeedAllowed - prevLimit;
+        let pct = (state.speed - prevLimit) / (maxSpeedAllowed - prevLimit);
+        if (pct < 0) pct = 0; if (pct > 1) pct = 1;
         
-        let pct = speedInGearRange / gearRangeSize;
-        if (pct < 0) pct = 0;
-        if (pct > 1) pct = 1;
-        
-        // Base RPM calculation
         let targetRpm = RPM_IDLE + (pct * (RPM_MAX - RPM_IDLE));
-        
-        // Rev Limiter Effect (Bouncing at max RPM)
-        if (state.speed >= maxSpeedAllowed - 1 && keys.throttle) {
-             targetRpm = RPM_MAX - (Math.random() * 500); // erratic bouncing
-        }
-
-        // Smooth RPM changes
+        if (state.speed >= maxSpeedAllowed - 1 && keys.throttle) { targetRpm = RPM_MAX - (Math.random() * 500); }
         state.rpm += (targetRpm - state.rpm) * 15 * dt;
     }
 
-    // Update UI Tel
+    document.getElementById('val-speed').textContent = Math.floor(state.speed);
+    document.getElementById('val-gear').textContent = state.gear === -1 ? 'R' : state.gear === 0 ? 'N' : state.gear;
+    document.getElementById('val-rpm').textContent = Math.floor(state.rpm).toString().padStart(5, '0');
+
+    if (audioCtx && osc1 && osc2) {
+        let baseHz = (state.rpm / 60) * 2.0; 
+        osc1.frequency.setTargetAtTime(baseHz, audioCtx.currentTime, 0.05);
+        osc2.frequency.setTargetAtTime(baseHz * 1.5, audioCtx.currentTime, 0.05);
+        let targetVolume = 0.05 + (state.throttle * 0.15);
+        mainGain.gain.setTargetAtTime(targetVolume, audioCtx.currentTime, 0.05);
+        let filterHz = 1000 + (state.rpm / RPM_MAX) * 4000;
+        filter.frequency.setTargetAtTime(filterHz, audioCtx.currentTime, 0.05);
+    }
+
+    const ledStep = (RPM_MAX - RPM_LEDS_START) / 15;
+    for (let i = 0; i < 15; i++) {
+        const ledNode = document.getElementById('led-' + i);
+        const targetRpm = RPM_LEDS_START + (i * ledStep);
+        if (state.rpm > targetRpm) {
+            ledNode.classList.add('active');
+            if (state.rpm > (RPM_MAX - 500) && i >= 10) { ledNode.classList.add('blink'); } 
+            else { ledNode.classList.remove('blink'); }
+        } else { ledNode.classList.remove('active', 'blink'); }
+    }
+    requestAnimationFrame(updatePhysics);
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    document.getElementById('start-overlay').style.display = 'none';
+    lastTime = performance.now();
+    requestAnimationFrame(updatePhysics);
+});
+
+const setupPedal = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; }, {passive: false});
+    el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; }, {passive: false});
+    el.addEventListener('touchcancel', (e) => { e.preventDefault(); keys[key] = false; }, {passive: false});
+    el.addEventListener('mousedown', (e) => { e.preventDefault(); keys[key] = true; });
+    el.addEventListener('mouseup', (e) => { e.preventDefault(); keys[key] = false; });
+    el.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[key] = false; });
+};
+
+setupPedal('throttle-base', 'throttle');
+setupPedal('brake-base', 'brake');
+
+const shiftUp = () => { if (state.gear < 8) { state.gear++; playPaddleClick(); } };
+const shiftDown = () => { if (state.gear > 0) { state.gear--; playPaddleClick(); } };
+
+document.getElementById('paddle-up').addEventListener('touchstart', (e) => { e.preventDefault(); shiftUp(); }, {passive: false});
+document.getElementById('paddle-down').addEventListener('touchstart', (e) => { e.preventDefault(); shiftDown(); }, {passive: false});
+document.getElementById('paddle-up').addEventListener('mousedown', (e) => { e.preventDefault(); shiftUp(); });
+document.getElementById('paddle-down').addEventListener('mousedown', (e) => { e.preventDefault(); shiftDown(); });
+</script>
+</body>
+</html>
