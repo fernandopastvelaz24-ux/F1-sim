@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>F1 Sim Móvil</title>
+    <title>F1 Sim Velocidad</title>
     <style>
         body { background: #111; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; touch-action: manipulation; user-select: none; }
         #wheel-frame { border: 4px solid #333; border-radius: 20px; padding: 20px; background: #222; max-width: 400px; margin: 0 auto; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
@@ -13,23 +13,19 @@
         .btn { color: white; border: none; padding: 25px; font-size: 20px; border-radius: 15px; width: 45%; font-weight: bold; box-shadow: 0 5px #222; }
         .btn:active { transform: translateY(4px); box-shadow: 0 1px #222; }
         .btn-acelerar { background: #008000; }
-        .btn-acelerar:active { background: #00a000; }
         .btn-frenar { background: #b22222; }
-        .btn-frenar:active { background: #d22222; }
         .cambios { display: flex; justify-content: space-around; margin-top: 20px; }
         .btn-cambio { background: #1e90ff; width: 45%; padding: 18px; font-size: 18px; color: white; border: none; border-radius: 12px; font-weight: bold; }
-        .btn-cambio:active { background: #63b8ff; }
         #start-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,15,15,0.95); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:10; }
-        #start-btn { background:#e10600; color:white; border:none; padding:20px 40px; font-size:22px; border-radius:10px; font-weight:bold; cursor:pointer; box-shadow: 0 4px #990000; }
-        #start-btn:active { transform: translateY(2px); box-shadow: 0 2px #990000; }
+        #start-btn { background:#e10600; color:white; border:none; padding:20px 40px; font-size:22px; border-radius:10px; font-weight:bold; cursor:pointer; }
     </style>
 </head>
 <body>
 
 <div id="start-overlay">
-    <h1 style="color:#e10600; margin-bottom:10px;">F1 SIMULADOR MÓVIL</h1>
-    <p style="color:#aaa; font-size:16px; margin-bottom:30px;">Toca para activar audio y controles táctiles</p>
-    <button id="start-btn">INICIAR MOTOR</button>
+    <h1 style="color:#e10600; margin-bottom:10px;">F1 VELOCIDAD CORREGIDA</h1>
+    <p style="color:#aaa; font-size:16px; margin-bottom:30px;">Prueba de aceleración instantánea</p>
+    <button id="start-btn">INICIAR SIMULADOR</button>
 </div>
 
 <div id="wheel-frame">
@@ -52,57 +48,56 @@
 
 <script>
 'use strict';
-const GEAR_RATIOS = { '-1': -2.5, '0': 0, '1': 3.2, '2': 2.19, '3': 1.69, '4': 1.36, '5': 1.12, '6': 0.96, '7': 0.85, '8': 0.76 };
-const ENGINE_CONSTANT = 32, RPM_IDLE = 4000, RPM_MAX = 14500, MASS = 800, MOTOR_FORCE_MAX = 620, BRAKE_FORCE_MAX = 900;
+
+const GEAR_RATIOS = { '-1': -2.5, '0': 0, '1': 4.2, '2': 3.1, '3': 2.5, '4': 2.0, '5': 1.65, '6': 1.4, '7': 1.2, '8': 1.0 };
+const ENGINE_CONSTANT = 35, RPM_IDLE = 4000, RPM_MAX = 14500;
+
+// FÍSICAS EXTREMAS PARA MÓVIL: Reduje el peso a la mitad y aumenté la fuerza x5 para que despegue rápido
+const MASS = 400; 
+const MOTOR_FORCE_MAX = 8500; 
+const BRAKE_FORCE_MAX = 6000;
 
 const state = { speed: 0, gear: 0, rpm: RPM_IDLE, throttle: 0, brake: 0 };
 const keys = { throttle: false, brake: false };
 
-let audioCtx = null, osc = null, masterGain = null;
+let lastTime = performance.now();
 
-function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.25;
-    masterGain.connect(audioCtx.destination);
-    
-    osc = audioCtx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.connect(masterGain);
-    osc.start();
-}
+function updatePhysics(currentTime) {
+    // Delta time real para evitar que el navegador del móvil ralentice el juego
+    let dt = (currentTime - lastTime) / 1000;
+    if (dt > 0.1) dt = 1/60; 
+    lastTime = currentTime;
 
-function updatePhysics() {
-    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 0.2;
-    state.brake += ((keys.brake ? 1 : 0) - state.brake) * 0.25;
+    // Respuesta instantánea al tocar el botón
+    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 0.4;
+    state.brake += ((keys.brake ? 1 : 0) - state.brake) * 0.5;
 
     const ratio = GEAR_RATIOS[state.gear];
     let motorForce = state.throttle * MOTOR_FORCE_MAX;
-    if (state.gear === -1) motorForce *= -0.4;
+    if (state.gear === -1) motorForce *= -0.5;
     if (state.gear === 0) motorForce = 0;
 
     const brakeForce = state.brake * BRAKE_FORCE_MAX;
-    const aeroDrag = 0.0034 * (state.speed * state.speed);
-    const netForce = motorForce - brakeForce - (state.speed * 2) - aeroDrag;
+    
+    // Reduje la resistencia del aire para que no se frene solo a altas velocidades
+    const aeroDrag = 0.0015 * (state.speed * state.speed); 
+    const netForce = motorForce - brakeForce - (state.speed * 1.1) - aeroDrag;
 
-    state.speed += (netForce / MASS) * (1/60) * 3.6;
+    // Multiplicador del paso de velocidad aumentado
+    state.speed += (netForce / MASS) * dt * 4.5; 
     if (state.speed < 0 && state.gear !== -1) state.speed = 0;
 
+    // Cálculo dinámico de RPM
     if (state.gear !== 0) {
         state.rpm = Math.abs(state.speed) * Math.abs(ratio) * ENGINE_CONSTANT;
-        if (state.rpm < RPM_IDLE) state.rpm = RPM_IDLE + (state.throttle * 500);
+        if (state.rpm < RPM_IDLE) state.rpm = RPM_IDLE + (state.throttle * 900);
     } else {
-        state.rpm += ((keys.throttle ? RPM_MAX - 1000 : RPM_IDLE) - state.rpm) * 0.1;
+        state.rpm += ((keys.throttle ? RPM_MAX - 500 : RPM_IDLE) - state.rpm) * 0.3;
     }
 
-    if (state.rpm >= RPM_MAX) state.rpm = RPM_MAX - 500;
+    if (state.rpm >= RPM_MAX) state.rpm = RPM_MAX - 300;
 
-    if (audioCtx && osc) {
-        const hz = (state.rpm / 60) * 3;
-        osc.frequency.setTargetAtTime(hz, audioCtx.currentTime, 0.05);
-    }
-
+    // Mostrar datos en pantalla
     document.getElementById('val-speed').textContent = Math.floor(Math.abs(state.speed));
     document.getElementById('val-gear').textContent = state.gear === -1 ? 'R' : state.gear === 0 ? 'N' : state.gear;
     document.getElementById('val-rpm').textContent = Math.floor(state.rpm);
@@ -111,11 +106,12 @@ function updatePhysics() {
 }
 
 document.getElementById('start-btn').addEventListener('click', () => {
-    initAudio();
     document.getElementById('start-overlay').style.display = 'none';
+    lastTime = performance.now();
     requestAnimationFrame(updatePhysics);
 });
 
+// Eventos de pulsación táctil rápidos
 const setupTouch = (id, key) => {
     const el = document.getElementById(id);
     el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
