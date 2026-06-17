@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
-    <title>F1 Real Wheel & Telemetry - Audio Real</title>
+    <title>F1 Real Wheel & Telemetry - Audio Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -109,12 +109,12 @@
             font-family: 'Share Tech Mono', monospace;
             font-size: 110px;
             line-height: 0.8;
-            color: #ff3333; /* Rojo Ferrari clásico */
+            color: #ff3333; /* Rojo Red Bull/Ferrari */
             text-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
             transition: color 0.05s ease;
         }
 
-        /* Detalles extras para que se vea pro */
+        /* Detalles extras de telemetría */
         .rpm-bar-digital {
             grid-column: span 3;
             background: #000;
@@ -202,7 +202,7 @@
 
 <div id="start-overlay">
     <h1 style="font-family:'Share Tech Mono'; font-size:40px; margin-bottom:10px;">F1 WHEEL</h1>
-    <p style="color:#5c7080; font-size: 14px; margin-bottom: 20px;">Red Bull Engine Audio System v2.5</p>
+    <p style="color:#5c7080; font-size: 14px; margin-bottom: 20px;">Red Bull Pro Audio Simulation v3.0</p>
     <button id="start-btn">POWER ON</button>
 </div>
 
@@ -270,7 +270,7 @@ const GEAR_LIMITS = { '-1': 80, '0': 0, '1': 135, '2': 180, '3': 220, '4': 255, 
 const RPM_IDLE = 4000, RPM_MAX = 15000, RPM_LEDS_START = 10000;
 
 const ACCEL_RATE = 160; 
-const BRAKE_RATE = 110; // Freno configurado progresivo y suave para dar tiempo de rebajar marchas
+const BRAKE_RATE = 110; 
 const AERO_DRAG = 0.02; 
 
 const state = { speed: 0, gear: 0, rpm: RPM_IDLE, throttle: 0, brake: 0 };
@@ -278,22 +278,39 @@ const keys = { throttle: false, brake: false };
 
 let lastTime = performance.now();
 
-// NUEVO SISTEMA DE AUDIO REAL USANDO TUS ARCHIVOS MP3
+// SISTEMA DE PROCESAMIENTO ACÚSTICO DIGITAL PROFESIONAL
+let audioCtx = null;
+let filtroMotor = null;
+let gananciaMotor = null;
+
 const sonidoMotor = new Audio('motor.mp3');
 const sonidoClickUp = new Audio('click_up.mp3');
 const sonidoClickDown = new Audio('click_down.mp3');
 
 sonidoMotor.loop = true;
-sonidoMotor.volume = 0.65; // Ajuste de volumen base del motor
 let motorIniciado = false;
 
 function initRealAudio() {
     if (motorIniciado) return;
+    
+    // Creamos el procesador de frecuencias nativo del navegador
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    gananciaMotor = audioCtx.createGain();
+    
+    // Filtro para simular la presión del escape/turbo
+    filtroMotor = audioCtx.createBiquadFilter();
+    filtroMotor.type = 'lowpass'; 
+    
+    const source = audioCtx.createMediaElementSource(sonidoMotor);
+    source.connect(filtroMotor);
+    filtroMotor.connect(gananciaMotor);
+    gananciaMotor.connect(audioCtx.destination);
+
     sonidoMotor.play().then(() => {
         motorIniciado = true;
-        console.log("Audio de motor real inicializado correctamente.");
+        console.log("Audio Dinámico Conectado.");
     }).catch(err => {
-        console.error("El navegador bloqueó la reproducción automática del audio:", err);
+        console.error("Error al iniciar audio:", err);
     });
 }
 
@@ -319,16 +336,36 @@ function flashGearScreen() {
     setTimeout(() => container.classList.remove('gear-flash'), 80);
 }
 
-function actualizarTonoMotor() {
-    if (!motorIniciado) return;
+// NUEVA SINK DE AUDIO REALISTA (Gas vs Frenos vs Reposo)
+function actualizarAudioDinamico() {
+    if (!motorIniciado || !audioCtx) return;
     
-    // Normalizamos las RPM actuales en un rango de 0 a 1
+    // 1. Tono amarrado a las RPM
     let factorRPM = (state.rpm - RPM_IDLE) / (RPM_MAX - RPM_IDLE);
     factorRPM = Math.max(0, Math.min(1, factorRPM));
-
-    // Modifica la velocidad del audio según el acelerador y las RPM en tiempo real.
-    // Ralentí = 0.65x de velocidad (más grave). Corte de inyección = 1.65x (más agudo).
     sonidoMotor.playbackRate = 0.65 + (factorRPM * 1.0);
+
+    // 2. Filtro de Presión (Carga del acelerador)
+    // Si aceleras a fondo el filtro se abre por completo dando el rugido brillante metálico.
+    // Si sueltas el gas cae instantáneamente a 1200Hz volviéndose sordo y grave (sonido de reposo).
+    let frecuenciaFiltro = 1200 + (state.throttle * 6800);
+    filtroMotor.frequency.setTargetAtTime(frecuenciaFiltro, audioCtx.currentTime, 0.04);
+
+    // 3. Gestión inteligente de Volumen
+    let volumenObjetivo = 0.65;
+
+    if (state.brake > 0.1) {
+        // Al frenar, ahoga el motor principal un 60% para que luzca el 'click_down.mp3'
+        volumenObjetivo = 0.25 * (1 - state.brake * 0.4);
+    } else if (state.throttle < 0.1) {
+        // Si no aceleras pero el carro rueda rápido, mantiene cuerpo de sonido sordo
+        volumenObjetivo = 0.45;
+    } else {
+        // Aceleración plena
+        volumenObjetivo = 0.7 + (state.throttle * 0.2);
+    }
+    
+    gananciaMotor.gain.setTargetAtTime(volumenObjetivo, audioCtx.currentTime, 0.05);
 }
 
 function updatePhysics(currentTime) {
@@ -336,7 +373,7 @@ function updatePhysics(currentTime) {
     if (dt > 0.1) dt = 1/60;
     lastTime = currentTime;
 
-    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 10 * dt;
+    state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 12 * dt; 
     state.brake += ((keys.brake ? 1 : 0) - state.brake) * 10 * dt;
     
     state.throttle = Math.max(0, Math.min(1, state.throttle));
@@ -352,7 +389,7 @@ function updatePhysics(currentTime) {
         if (keys.brake) state.speed -= BRAKE_RATE * state.brake * dt;
         if (state.speed < 0) state.speed = 0;
         let targetRpm = RPM_IDLE + (state.throttle * (RPM_MAX - RPM_IDLE));
-        state.rpm += (targetRpm - state.rpm) * 10 * dt;
+        state.rpm += (targetRpm - state.rpm) * 12 * dt;
     } else {
         if (keys.throttle && state.speed < maxSpeedAllowed) { state.speed += ACCEL_RATE * state.throttle * dt; }
         if (keys.brake) { state.speed -= BRAKE_RATE * state.brake * dt; }
@@ -366,6 +403,10 @@ function updatePhysics(currentTime) {
         if (pct < 0) pct = 0; if (pct > 1) pct = 1;
         
         let targetRpm = RPM_IDLE + (pct * (RPM_MAX - RPM_IDLE));
+        
+        // Caída de RPM en retención mecánica real al soltar el pedal de gas
+        if (!keys.throttle) { targetRpm = Math.max(RPM_IDLE + 1000, targetRpm - 1500); }
+        
         if (state.speed >= maxSpeedAllowed - 1 && keys.throttle) { targetRpm = RPM_MAX - (Math.random() * 500); }
         state.rpm += (targetRpm - state.rpm) * 15 * dt;
     }
@@ -374,8 +415,8 @@ function updatePhysics(currentTime) {
     document.getElementById('val-gear').textContent = state.gear === -1 ? 'R' : state.gear === 0 ? 'N' : state.gear;
     document.getElementById('val-rpm').textContent = Math.floor(state.rpm).toString().padStart(5, '0');
 
-    // Sincroniza dinámicamente el tono de la pista real de Red Bull con el simulador
-    actualizarTonoMotor();
+    // Manda llamar el procesamiento dinámico de los audios MP3
+    actualizarAudioDinamico();
 
     const ledStep = (RPM_MAX - RPM_LEDS_START) / 15;
     for (let i = 0; i < 15; i++) {
