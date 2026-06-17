@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
-    <title>F1 Real Wheel & Telemetry</title>
+    <title>F1 Real Wheel & Telemetry - Audio Real</title>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -101,12 +101,17 @@
             border-right: 2px solid #151d29;
             background: radial-gradient(circle, #101622 0%, #080b12 100%);
         }
+        .center-col.gear-flash #val-gear {
+            color: #00ffcc !important;
+            text-shadow: 0 0 25px rgba(0, 255, 204, 0.8) !important;
+        }
         #val-gear {
             font-family: 'Share Tech Mono', monospace;
             font-size: 110px;
             line-height: 0.8;
             color: #ff3333; /* Rojo Ferrari clásico */
             text-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
+            transition: color 0.05s ease;
         }
 
         /* Detalles extras para que se vea pro */
@@ -197,6 +202,7 @@
 
 <div id="start-overlay">
     <h1 style="font-family:'Share Tech Mono'; font-size:40px; margin-bottom:10px;">F1 WHEEL</h1>
+    <p style="color:#5c7080; font-size: 14px; margin-bottom: 20px;">Red Bull Engine Audio System v2.5</p>
     <button id="start-btn">POWER ON</button>
 </div>
 
@@ -214,7 +220,7 @@
                 <div><span id="val-speed" class="info-value speed-val">0</span> <span class="info-unit">km/h</span></div>
             </div>
             
-            <div class="center-col">
+            <div id="gear-container" class="center-col">
                 <div id="val-gear">N</div>
             </div>
             
@@ -264,41 +270,65 @@ const GEAR_LIMITS = { '-1': 80, '0': 0, '1': 135, '2': 180, '3': 220, '4': 255, 
 const RPM_IDLE = 4000, RPM_MAX = 15000, RPM_LEDS_START = 10000;
 
 const ACCEL_RATE = 160; 
-// AQUÍ ESTÁ EL CAMBIO DEL FRENO: Bajé la fuerza de 300 a 110. Ahora es progresivo y te deja bajar marchas.
-const BRAKE_RATE = 110; 
-const AERO_DRAG = 0.02; // Un poco menos de drag para que fluya mejor al soltar gas
+const BRAKE_RATE = 110; // Freno configurado progresivo y suave para dar tiempo de rebajar marchas
+const AERO_DRAG = 0.02; 
 
 const state = { speed: 0, gear: 0, rpm: RPM_IDLE, throttle: 0, brake: 0 };
 const keys = { throttle: false, brake: false };
 
-let audioCtx = null, osc1 = null, osc2 = null, filter = null, mainGain = null;
 let lastTime = performance.now();
 
-function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    mainGain = audioCtx.createGain(); mainGain.gain.value = 0.0;
-    filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1000;
-    osc1 = audioCtx.createOscillator(); osc1.type = 'sawtooth';
-    osc2 = audioCtx.createOscillator(); osc2.type = 'square'; osc2.detune.value = 12;
+// NUEVO SISTEMA DE AUDIO REAL USANDO TUS ARCHIVOS MP3
+const sonidoMotor = new Audio('motor.mp3');
+const sonidoClickUp = new Audio('click_up.mp3');
+const sonidoClickDown = new Audio('click_down.mp3');
 
-    osc1.connect(filter); osc2.connect(filter); filter.connect(mainGain); mainGain.connect(audioCtx.destination);
-    osc1.start(); osc2.start();
+sonidoMotor.loop = true;
+sonidoMotor.volume = 0.65; // Ajuste de volumen base del motor
+let motorIniciado = false;
+
+function initRealAudio() {
+    if (motorIniciado) return;
+    sonidoMotor.play().then(() => {
+        motorIniciado = true;
+        console.log("Audio de motor real inicializado correctamente.");
+    }).catch(err => {
+        console.error("El navegador bloqueó la reproducción automática del audio:", err);
+    });
 }
 
-function playPaddleClick() {
-    if (!audioCtx) return;
-    let clickOsc = audioCtx.createOscillator(); clickOsc.type = 'sine';
-    clickOsc.frequency.setValueAtTime(2500, audioCtx.currentTime); 
-    clickOsc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.03);
-    
-    let clickGain = audioCtx.createGain();
-    clickGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
-    clickGain.gain.linearRampToValueAtTime(0.6, audioCtx.currentTime + 0.005);
-    clickGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+function playRealShiftUp() {
+    if (!motorIniciado) return;
+    sonidoClickUp.currentTime = 0;
+    sonidoClickUp.volume = 0.9;
+    sonidoClickUp.play();
+    flashGearScreen();
+}
 
-    clickOsc.connect(clickGain); clickGain.connect(audioCtx.destination);
-    clickOsc.start(); clickOsc.stop(audioCtx.currentTime + 0.05);
+function playRealShiftDown() {
+    if (!motorIniciado) return;
+    sonidoClickDown.currentTime = 0;
+    sonidoClickDown.volume = 0.95;
+    sonidoClickDown.play();
+    flashGearScreen();
+}
+
+function flashGearScreen() {
+    const container = document.getElementById('gear-container');
+    container.classList.add('gear-flash');
+    setTimeout(() => container.classList.remove('gear-flash'), 80);
+}
+
+function actualizarTonoMotor() {
+    if (!motorIniciado) return;
+    
+    // Normalizamos las RPM actuales en un rango de 0 a 1
+    let factorRPM = (state.rpm - RPM_IDLE) / (RPM_MAX - RPM_IDLE);
+    factorRPM = Math.max(0, Math.min(1, factorRPM));
+
+    // Modifica la velocidad del audio según el acelerador y las RPM en tiempo real.
+    // Ralentí = 0.65x de velocidad (más grave). Corte de inyección = 1.65x (más agudo).
+    sonidoMotor.playbackRate = 0.65 + (factorRPM * 1.0);
 }
 
 function updatePhysics(currentTime) {
@@ -307,7 +337,6 @@ function updatePhysics(currentTime) {
     lastTime = currentTime;
 
     state.throttle += ((keys.throttle ? 1 : 0) - state.throttle) * 10 * dt;
-    // Suavizamos también cómo entra el pedal del freno visualmente y físicamente
     state.brake += ((keys.brake ? 1 : 0) - state.brake) * 10 * dt;
     
     state.throttle = Math.max(0, Math.min(1, state.throttle));
@@ -326,7 +355,6 @@ function updatePhysics(currentTime) {
         state.rpm += (targetRpm - state.rpm) * 10 * dt;
     } else {
         if (keys.throttle && state.speed < maxSpeedAllowed) { state.speed += ACCEL_RATE * state.throttle * dt; }
-        // Aplicación del freno más realista
         if (keys.brake) { state.speed -= BRAKE_RATE * state.brake * dt; }
         
         state.speed -= (state.speed * AERO_DRAG) * dt; 
@@ -346,15 +374,8 @@ function updatePhysics(currentTime) {
     document.getElementById('val-gear').textContent = state.gear === -1 ? 'R' : state.gear === 0 ? 'N' : state.gear;
     document.getElementById('val-rpm').textContent = Math.floor(state.rpm).toString().padStart(5, '0');
 
-    if (audioCtx && osc1 && osc2) {
-        let baseHz = (state.rpm / 60) * 2.0; 
-        osc1.frequency.setTargetAtTime(baseHz, audioCtx.currentTime, 0.05);
-        osc2.frequency.setTargetAtTime(baseHz * 1.5, audioCtx.currentTime, 0.05);
-        let targetVolume = 0.05 + (state.throttle * 0.15);
-        mainGain.gain.setTargetAtTime(targetVolume, audioCtx.currentTime, 0.05);
-        let filterHz = 1000 + (state.rpm / RPM_MAX) * 4000;
-        filter.frequency.setTargetAtTime(filterHz, audioCtx.currentTime, 0.05);
-    }
+    // Sincroniza dinámicamente el tono de la pista real de Red Bull con el simulador
+    actualizarTonoMotor();
 
     const ledStep = (RPM_MAX - RPM_LEDS_START) / 15;
     for (let i = 0; i < 15; i++) {
@@ -370,8 +391,7 @@ function updatePhysics(currentTime) {
 }
 
 document.getElementById('start-btn').addEventListener('click', () => {
-    initAudio();
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    initRealAudio();
     document.getElementById('start-overlay').style.display = 'none';
     lastTime = performance.now();
     requestAnimationFrame(updatePhysics);
@@ -390,8 +410,8 @@ const setupPedal = (id, key) => {
 setupPedal('throttle-base', 'throttle');
 setupPedal('brake-base', 'brake');
 
-const shiftUp = () => { if (state.gear < 8) { state.gear++; playPaddleClick(); } };
-const shiftDown = () => { if (state.gear > 0) { state.gear--; playPaddleClick(); } };
+const shiftUp = () => { if (state.gear < 8) { state.gear++; playRealShiftUp(); } };
+const shiftDown = () => { if (state.gear > 0) { state.gear--; playRealShiftDown(); } };
 
 document.getElementById('paddle-up').addEventListener('touchstart', (e) => { e.preventDefault(); shiftUp(); }, {passive: false});
 document.getElementById('paddle-down').addEventListener('touchstart', (e) => { e.preventDefault(); shiftDown(); }, {passive: false});
