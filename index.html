@@ -57,13 +57,11 @@
     </div>
 
     <script>
-        // Elementos de interfaz
         const gearIndicator = document.getElementById('gear-indicator');
         const rpmIndicator = document.getElementById('rpm-indicator');
         const throttleFill = document.getElementById('throttle-fill');
         const brakeFill = document.getElementById('brake-fill');
 
-        // Configuración nativa de los elementos de Audio HTML5
         const audioReposo = new Audio('motor_reposo.mp3');
         const audioRectaFull = new Audio('recta_full.mp3');
         const audioSubiendoMarchas = new Audio('subiendo_marchas.mp3');
@@ -71,11 +69,9 @@
         const audioUp = new Audio('click_up.mp3');
         const audioDown = new Audio('down_marcha.mp3');
 
-        // Forzar loops infinitos donde se requiere estabilidad continua
         audioReposo.loop = true;
         audioRectaFull.loop = true;
 
-        // Variables de Control de Estado del Simulador
         let marchaActual = 1;
         let rpm = 4000;
         let iniciado = false;
@@ -83,7 +79,6 @@
         let frenando = false;
         let enSecuenciaLarga = false;
 
-        // Nodos del procesador Web Audio API para mezcla ultrasuave (Anti-clics)
         let audioCtx, gainReposo, gainRecta, gainSecuencia, gainContDown;
 
         function initWebAudio() {
@@ -91,36 +86,32 @@
             
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             
-            // Creamos reguladores de volumen virtuales para cada pista
             gainReposo = audioCtx.createGain();
             gainRecta = audioCtx.createGain();
             gainSecuencia = audioCtx.createGain();
             gainContDown = audioCtx.createGain();
 
-            // Enlazamos los audios al mezclador inteligente
+            // CORREGIDO: Ahora conecta correctamente 'audioRectaFull'
             audioCtx.createMediaElementSource(audioReposo).connect(gainReposo).connect(audioCtx.destination);
-            audioCtx.createMediaElementSource(audioRecta).connect(gainRecta).connect(audioCtx.destination);
+            audioCtx.createMediaElementSource(audioRectaFull).connect(gainRecta).connect(audioCtx.destination);
             audioCtx.createMediaElementSource(audioSubiendoMarchas).connect(gainSecuencia).connect(audioCtx.destination);
             audioCtx.createMediaElementSource(audioContinuacionDown).connect(gainContDown).connect(audioCtx.destination);
 
-            // Valores iniciales seguros (Todo mudo excepto reposo)
             gainReposo.gain.setValueAtTime(1.0, audioCtx.currentTime);
             gainRecta.gain.setValueAtTime(0.0, audioCtx.currentTime);
             gainSecuencia.gain.setValueAtTime(0.0, audioCtx.currentTime);
             gainContDown.gain.setValueAtTime(0.0, audioCtx.currentTime);
 
-            // Arrancar de fondo todos los hilos simultáneamente para sincronía milimétrica
             audioReposo.play().catch(e => {});
-            audioRecta.play().catch(e => {});
+            audioRectaFull.play().catch(e => {});
             audioSubiendoMarchas.play().catch(e => {});
-            audioSubiendoMarchas.pause(); // Esta se dispara por eventos táctiles
+            audioSubiendoMarchas.pause(); 
             audioContinuacionDown.play().catch(e => {});
             audioContinuacionDown.pause();
 
             iniciado = true;
         }
 
-        // --- SISTEMA DE MANEJO DE ACELERACIÓN (GAS) ---
         function presionarGas() {
             initWebAudio();
             acelerando = true;
@@ -130,7 +121,6 @@
 
             let t = audioCtx.currentTime;
             
-            // Desvanecer retenciones previas limpiamente en 0.05 segundos (Elimina cortes feos)
             gainContDown.gain.setTargetAtTime(0.0, t, 0.03);
             gainReposo.gain.setTargetAtTime(0.0, t, 0.03);
 
@@ -138,7 +128,6 @@
                 enSecuenciaLarga = true;
                 gainRecta.gain.setTargetAtTime(0.0, t, 0.03);
                 
-                // Si el audio secuencial largo estaba detenido, lo reengancha fluido
                 if (audioSubiendoMarchas.paused) {
                     audioSubiendoMarchas.play().catch(e => {});
                 }
@@ -153,16 +142,14 @@
         function soltarGas() {
             acelerando = false;
             throttleFill.style.height = "0%";
-            if (frenando) return; // Si ya se presionó el freno, la función de freno toma el control total
+            if (frenando) return;
 
             let t = audioCtx.currentTime;
-            // Transición suave de vuelta al ralentí (reposo)
             gainRecta.gain.setTargetAtTime(0.0, t, 0.06);
             gainSecuencia.gain.setTargetAtTime(0.0, t, 0.06);
             gainReposo.gain.setTargetAtTime(1.0, t, 0.08);
         }
 
-        // --- SISTEMA DE MANEJO DE FRENOS (RETENCIÓN) ---
         function presionarFreno() {
             initWebAudio();
             frenando = true;
@@ -173,11 +160,8 @@
             let t = audioCtx.currentTime;
             enSecuenciaLarga = false;
 
-            // Apagar instantáneamente pero con rampa limpia el empuje del motor a fondo
             gainRecta.gain.setTargetAtTime(0.0, t, 0.03);
             gainSecuencia.gain.setTargetAtTime(0.0, t, 0.03);
-            
-            // Traer al frente el motor en reposo de base
             gainReposo.gain.setTargetAtTime(1.0, t, 0.05);
         }
 
@@ -186,7 +170,6 @@
             brakeFill.style.height = "0%";
         }
 
-        // Eventos Táctiles Adaptados para Pantallas de Celulares
         document.getElementById('btn-throttle').addEventListener('touchstart', (e) => { e.preventDefault(); presionarGas(); });
         document.getElementById('btn-throttle').addEventListener('touchend', (e) => { e.preventDefault(); soltarGas(); });
         document.getElementById('btn-throttle').addEventListener('mousedown', presionarGas);
@@ -197,23 +180,18 @@
         document.getElementById('btn-brake').addEventListener('mousedown', presionarFreno);
         document.getElementById('btn-brake').addEventListener('mouseup', soltarFreno);
 
-
-        // --- CAMBIO DE MARCHAS ULTRA-SINCRONIZADO (UP / DOWN) ---
         document.getElementById('btn-up').addEventListener('click', () => {
             initWebAudio();
             if (marchaActual < 8) {
                 marchaActual++;
 
-                // Efecto "Corte de Inyección": Baja el volumen general 60ms para simular el engranaje neumático
                 let t = audioCtx.currentTime;
                 gainSecuencia.gain.setValueAtTime(0.1, t);
                 gainRecta.gain.setValueAtTime(0.1, t);
                 
-                // Suena el gatillo metálico secuencial corto
                 audioUp.currentTime = 0;
                 audioUp.play().catch(e => {});
 
-                // Restaurar el volumen dinámicamente justo después del golpe de la caja
                 setTimeout(() => {
                     let now = audioCtx.currentTime;
                     if (acelerando) {
@@ -238,19 +216,15 @@
                 enSecuenciaLarga = false;
                 let t = audioCtx.currentTime;
 
-                // Suena el latigazo/explosión del rebaje (0.4s)
                 audioDown.currentTime = 0;
                 audioDown.play().catch(e => {});
 
-                // Disparar en paralelo la continuación de retención de 3 segundos
                 audioContinuacionDown.currentTime = 0;
                 audioContinuacionDown.play().catch(e => {});
                 
-                // Web Audio API cruza el volumen: sube la retención y atenúa suavemente el motor largo de fondo
                 gainContDown.gain.setValueAtTime(1.0, t);
                 gainSecuencia.gain.setTargetAtTime(0.0, t, 0.02);
                 
-                // Si el piloto clava el acelerador rápido en plena reducción, el sonido de fondo se re-acomoda
                 if (acelerando) {
                     gainRecta.gain.setTargetAtTime(1.0, t, 0.05);
                 } else {
@@ -263,7 +237,6 @@
 
         function actualizarPantalla() {
             gearIndicator.innerText = marchaActual;
-            // Cálculo dinámico realista de RPM según comportamiento instantáneo
             if (acelerando) {
                 rpm = Math.floor(12000 + (marchaActual * 200) + (Math.random() * 120));
             } else if (frenando) {
@@ -274,12 +247,10 @@
             rpmIndicator.innerText = `RPM: ${rpm}`;
         }
 
-        // Bucle inteligente de monitoreo de hilos a 30 FPS
         setInterval(() => {
             if (!iniciado) return;
             actualizarPantalla();
 
-            // Lógica de seguridad para el fin de pista de 22s: Transición indetectable al bucle de la Recta Full
             if (marchaActual === 8 && enSecuenciaLarga && audioSubiendoMarchas.currentTime >= 21.4) {
                 let now = audioCtx.currentTime;
                 enSecuenciaLarga = false;
@@ -288,7 +259,6 @@
             }
         }, 1000 / 30);
 
-        // Control de arranque general de la interfaz
         document.getElementById('start-btn').addEventListener('click', () => {
             initWebAudio();
             document.getElementById('start-overlay').style.display = 'none';
